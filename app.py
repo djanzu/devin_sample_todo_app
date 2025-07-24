@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect
 import json
 import os
 import uuid
+from datetime import datetime
 
 app = Flask(__name__)
 DATA_FILE = 'data.json'
@@ -19,14 +20,32 @@ def save_tasks(tasks):
 @app.route('/')
 def index():
     tasks = load_tasks()
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    # Add status for each task based on due date
+    for task in tasks:
+        if task.get('due_date'):
+            if task['due_date'] < today:
+                task['status'] = 'overdue'
+            elif task['due_date'] == today:
+                task['status'] = 'due-today'
+            else:
+                task['status'] = 'upcoming'
+    
+    # Sort tasks by due date (None values last)
+    tasks.sort(key=lambda x: x.get('due_date') or '9999-12-31')
     return render_template('index.html', tasks=tasks)
 
 @app.route('/add', methods=['POST'])
 def add():
     task_title = request.form.get('title')
+    due_date = request.form.get('due_date')
     if task_title:
         tasks = load_tasks()
-        tasks.append({'id': str(uuid.uuid4()), 'title': task_title})
+        task = {'id': str(uuid.uuid4()), 'title': task_title}
+        if due_date:
+            task['due_date'] = due_date
+        tasks.append(task)
         save_tasks(tasks)
     return redirect('/')
 
