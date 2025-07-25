@@ -1,21 +1,45 @@
 from flask import Flask, render_template, request, redirect
-import json
-import os
+import sqlite3
 import uuid
 from datetime import datetime
 
 app = Flask(__name__)
-DATA_FILE = 'data.json'
+DATABASE = 'tasks.db'
+
+def init_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            due_date TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 def load_tasks():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r') as f:
-            return json.load(f)
-    return []
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute('SELECT * FROM tasks')
+    tasks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return tasks
 
-def save_tasks(tasks):
-    with open(DATA_FILE, 'w') as f:
-        json.dump(tasks, f)
+def add_task(title, due_date=None):
+    task_id = str(uuid.uuid4())
+    conn = sqlite3.connect(DATABASE)
+    conn.execute('INSERT INTO tasks (id, title, due_date) VALUES (?, ?, ?)', 
+                 (task_id, title, due_date))
+    conn.commit()
+    conn.close()
+    return task_id
+
+def delete_task(task_id):
+    conn = sqlite3.connect(DATABASE)
+    conn.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    conn.commit()
+    conn.close()
 
 @app.route('/')
 def index():
@@ -41,20 +65,14 @@ def add():
     task_title = request.form.get('title')
     due_date = request.form.get('due_date')
     if task_title:
-        tasks = load_tasks()
-        task = {'id': str(uuid.uuid4()), 'title': task_title}
-        if due_date:
-            task['due_date'] = due_date
-        tasks.append(task)
-        save_tasks(tasks)
+        add_task(task_title, due_date if due_date else None)
     return redirect('/')
 
 @app.route('/delete/<task_id>', methods=['POST'])
 def delete(task_id):
-    tasks = load_tasks()
-    tasks = [task for task in tasks if task.get('id') != task_id]
-    save_tasks(tasks)
+    delete_task(task_id)
     return redirect('/')
 
 if __name__ == '__main__':
+    init_db()
     app.run(host='0.0.0.0', port=5000)
