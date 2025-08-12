@@ -1,106 +1,241 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ToDo App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My ToDo List</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 500px;
-            margin: 40px auto;
+            max-width: 800px;
+            margin: 0 auto;
             padding: 20px;
-            border: 1px solid #ccc;
+            background-color: #f5f5f5;
         }
+        
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
         h1 {
+            color: #333;
             text-align: center;
+            margin-bottom: 30px;
         }
-        form {
-            margin-bottom: 20px;
+        
+        .add-task-form {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
         }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
         input[type="text"], input[type="date"] {
-            width: 40%;
-            padding: 8px;
-            margin-right: 10px;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
         }
-        input[type="submit"] {
-            padding: 8px 12px;
+        
+        .submit-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
         }
-        .form-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
+        
+        .submit-btn:hover {
+            background-color: #0056b3;
         }
-        ul {
+        
+        .task-list {
             list-style: none;
             padding: 0;
         }
-        li {
-            background: #f5f5f5;
+        
+        .task-item {
+            background-color: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
             margin-bottom: 10px;
-            padding: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .delete-btn {
-            background-color: #ff4444;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            border-radius: 3px;
-        }
-        .delete-btn:hover {
-            background-color: #cc0000;
-        }
-        .task-info {
+        
+        .task-content {
             flex-grow: 1;
         }
-        .due-date {
-            font-size: 0.9em;
+        
+        .task-title {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .task-due-date {
+            font-size: 14px;
             color: #666;
-            margin-top: 4px;
         }
-        .overdue {
-            color: #ff4444;
-            font-weight: bold;
+        
+        .task-item.overdue {
+            border-left: 5px solid #dc3545;
+            background-color: #f8d7da;
         }
-        .due-soon {
-            color: #ff8800;
-            font-weight: bold;
+        
+        .task-item.due-today {
+            border-left: 5px solid #fd7e14;
+            background-color: #fff3cd;
         }
+        
+        .task-item.upcoming {
+            border-left: 5px solid #28a745;
+            background-color: #d4edda;
+        }
+        
+        .task-item.no-due-date {
+            border-left: 5px solid #6c757d;
+        }
+        
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        
+        .no-tasks {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+        }
+        
+        .status-legend {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .status-legend h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 15px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        
+        .legend-overdue { background-color: #dc3545; }
+        .legend-due-today { background-color: #fd7e14; }
+        .legend-upcoming { background-color: #28a745; }
+        .legend-no-due-date { background-color: #6c757d; }
     </style>
 </head>
 <body>
-    <h1>My ToDo List</h1>
-    <form action="/add" method="POST">
-        <div class="form-row">
-            <input type="text" name="title" placeholder="Enter a new task" required>
-            <input type="date" name="due_date">
-            <input type="submit" value="Add">
+    <div class="container">
+        <h1>My ToDo List</h1>
+        
+        <!-- タスク追加フォーム -->
+        <form method="POST" action="/add" class="add-task-form">
+            <div class="form-group">
+                <label for="title">タスク名:</label>
+                <input type="text" id="title" name="title" required placeholder="新しいタスクを入力してください">
+            </div>
+            <div class="form-group">
+                <label for="due_date">締切日 (オプション):</label>
+                <input type="date" id="due_date" name="due_date">
+            </div>
+            <button type="submit" class="submit-btn">タスクを追加</button>
+        </form>
+        
+        <!-- ステータス凡例 -->
+        {% if tasks %}
+        <div class="status-legend">
+            <h3>ステータス凡例:</h3>
+            <div class="legend-item">
+                <span class="legend-color legend-overdue"></span>期限切れ
+            </div>
+            <div class="legend-item">
+                <span class="legend-color legend-due-today"></span>今日が期限
+            </div>
+            <div class="legend-item">
+                <span class="legend-color legend-upcoming"></span>期限あり
+            </div>
+            <div class="legend-item">
+                <span class="legend-color legend-no-due-date"></span>期限なし
+            </div>
         </div>
-    </form>
-    <ul>
-        {% for task in tasks %}
-            <li>
-                <div class="task-info">
-                    <div>{{ task.title }}</div>
-                    {% if task.due_date %}
-                        {% if task.status == 'overdue' %}
-                            <div class="due-date overdue">期限切れ: {{ task.due_date }}</div>
-                        {% elif task.status == 'due-today' %}
-                            <div class="due-date due-soon">今日が期限: {{ task.due_date }}</div>
-                        {% else %}
-                            <div class="due-date">期限: {{ task.due_date }}</div>
+        {% endif %}
+        
+        <!-- タスクリスト -->
+        {% if tasks %}
+            <ul class="task-list">
+                {% for task in tasks %}
+                <li class="task-item {{ task.status }}">
+                    <div class="task-content">
+                        <div class="task-title">{{ task.title }}</div>
+                        {% if task.due_date %}
+                        <div class="task-due-date">
+                            締切: {{ task.due_date }}
+                            {% if task.status == 'overdue' %}
+                                (期限切れ)
+                            {% elif task.status == 'due-today' %}
+                                (今日が期限)
+                            {% endif %}
+                        </div>
                         {% endif %}
-                    {% endif %}
-                </div>
-                <form method="POST" action="/delete/{{ task.id }}" style="display: inline;">
-                    <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this task?')">Delete</button>
-                </form>
-            </li>
-        {% endfor %}
-    </ul>
+                    </div>
+                    <form method="POST" action="/delete/{{ task.id }}" style="display: inline;">
+                        <button type="submit" class="delete-btn" onclick="return confirm('このタスクを削除しますか？')">削除</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="no-tasks">
+                タスクがありません。上のフォームから新しいタスクを追加してください。
+            </div>
+        {% endif %}
+    </div>
 </body>
 </html>

@@ -1,14 +1,15 @@
-from flask import Flask, render_template, request, redirect
 import sqlite3
 import uuid
 from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
-DATABASE = 'tasks.db'
 
 def init_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.execute('''
+    """データベースとテーブルの初期化"""
+    conn = sqlite3.connect('tasks.db')
+    cursor = conn.cursor()
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
@@ -18,61 +19,81 @@ def init_db():
     conn.commit()
     conn.close()
 
-def load_tasks():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.execute('SELECT * FROM tasks')
-    tasks = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return tasks
-
-def add_task(title, due_date=None):
-    task_id = str(uuid.uuid4())
-    conn = sqlite3.connect(DATABASE)
-    conn.execute('INSERT INTO tasks (id, title, due_date) VALUES (?, ?, ?)', 
-                 (task_id, title, due_date))
-    conn.commit()
-    conn.close()
-    return task_id
-
-def delete_task(task_id):
-    conn = sqlite3.connect(DATABASE)
-    conn.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-    conn.commit()
-    conn.close()
-
 @app.route('/')
 def index():
+    """メインページの表示 - タスクリスト込み"""
     tasks = load_tasks()
-    today = datetime.now().strftime('%Y-%m-%d')
+    return render_template('index.html', tasks=tasks)
+
+def load_tasks():
+    """SQLiteデータベースからタスクデータを読み込み"""
+    conn = sqlite3.connect('tasks.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, title, due_date FROM tasks ORDER BY due_date IS NULL, due_date')
+    rows = cursor.fetchall()
+    conn.close()
     
-    # Add status for each task based on due date
-    for task in tasks:
-        if task.get('due_date'):
-            if task['due_date'] < today:
+    tasks = []
+    today = datetime.now().date()
+    
+    for row in rows:
+        task = {
+            'id': row[0],
+            'title': row[1],
+            'due_date': row[2]
+        }
+        
+        # 締切状態の判定
+        if task['due_date']:
+            due_date = datetime.strptime(task['due_date'], '%Y-%m-%d').date()
+            if due_date < today:
                 task['status'] = 'overdue'
-            elif task['due_date'] == today:
+            elif due_date == today:
                 task['status'] = 'due-today'
             else:
                 task['status'] = 'upcoming'
+        else:
+            task['status'] = 'no-due-date'
+        
+        tasks.append(task)
     
-    # Sort tasks by due date (None values last)
-    tasks.sort(key=lambda x: x.get('due_date') or '9999-12-31')
-    return render_template('index.html', tasks=tasks)
+    return tasks
 
 @app.route('/add', methods=['POST'])
-def add():
-    task_title = request.form.get('title')
-    due_date = request.form.get('due_date')
-    if task_title:
-        add_task(task_title, due_date if due_date else None)
-    return redirect('/')
+def add_task():
+    """新規タスクの追加"""
+    title = request.form.get('title', '').strip()
+    due_date = request.form.get('due_date', '').strip()
+    
+    if title:
+        add_task_to_db(title, due_date if due_date else None)
+    
+    return redirect(url_for('index'))
+
+def add_task_to_db(title, due_date):
+    """新しいタスクをデータベースに追加"""
+    task_id = str(uuid.uuid4())
+    conn = sqlite3.connect('tasks.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO tasks (id, title, due_date) VALUES (?, ?, ?)', 
+                   (task_id, title, due_date))
+    conn.commit()
+    conn.close()
 
 @app.route('/delete/<task_id>', methods=['POST'])
-def delete(task_id):
+def delete_task_route(task_id):
+    """指定されたタスクの削除"""
     delete_task(task_id)
-    return redirect('/')
+    return redirect(url_for('index'))
+
+def delete_task(task_id):
+    """指定されたタスクをデータベースから削除"""
+    conn = sqlite3.connect('tasks.db')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    conn.commit()
+    conn.close()
 
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
